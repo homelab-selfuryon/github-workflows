@@ -90,11 +90,29 @@
         "type": "github"
       }
     },
+    "platform-kit": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794168355,
+        "narHash": "sha256-CaT5JPm5lgGEVLyIT6VMdeHR0Fd3sAhKC4V9RcqKGjo=",
+        "owner": "homelab-selfuryon",
+        "repo": "platform-kit",
+        "rev": "d521a0ca3c59546824053a6b0dd7df29ccdd5dc3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "homelab-selfuryon",
+        "ref": "v0.1.0",
+        "repo": "platform-kit",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "devenv": "devenv",
         "git-hooks": "git-hooks",
         "nixpkgs": "nixpkgs",
+        "platform-kit": "platform-kit",
         "treefmt-nix": "treefmt-nix"
       }
     },

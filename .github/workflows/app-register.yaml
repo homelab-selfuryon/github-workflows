@@ -52,7 +52,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-
       - name: Read and validate deploy.cue
         run: |
           set -euo pipefail

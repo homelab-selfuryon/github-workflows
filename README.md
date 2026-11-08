@@ -3,10 +3,10 @@
 Reusable GitHub Actions workflows of [`homelab-selfuryon`](https://github.com/homelab-selfuryon).
 Every repository in the org calls these instead of writing its own release logic. Checks that only one repository needs (gitops verify, components check) and the publishers Flux verifies live in that repository.
 
-The signing identity of every *app* artifact (image, manifests) is one of these workflows
+The signing identity of every _app_ artifact (image, manifests) is one of these workflows
 (`.../github-workflows/.github/workflows/<name>.yaml@<ref>`, source repository and tag in the certificate).
 `gitops`'s verify check and Kyverno accept only those, so a product repository cannot sign something the platform
-trusts by itself. Artifacts *Flux* verifies (`gitops/<cluster>`, platform sets) are the exception: they are
+trusts by itself. Artifacts _Flux_ verifies (`gitops/<cluster>`, platform sets) are the exception: they are
 signed in a job defined in the publishing repository itself (`gitops/.github/workflows/publish.yaml`,
 `platform-components/.github/workflows/release.yaml`, both `@refs/heads/main`), because Flux matches
 only the certificate subject and a reusable workflow would put `github-workflows` there, letting a
@@ -14,16 +14,16 @@ workflow on any branch produce an accepted artifact; there is no reusable workfl
 artifacts the logic lives here for the same reason it is
 called pinned (Renovate bumps the SHA): release logic stays out of the product repository.
 
-| Workflow | Called by | Does |
-| --- | --- | --- |
-| `rust-ci.yaml` | app, PR and main | `devenv test`, `cue vet ./deploy` |
-| `app-preview.yaml` | app, PR (same repository only) | image `pr-<n>-<sha7>`, `manifests:pr-<n>`, both cosign signed |
-| `app-release.yaml` | app, tag `v*`, environment `staging` | image (buildx, SBOM + provenance), `manifests:<version>` (staging + prod), signed, PR to `gitops` `staging.json` with auto-merge |
-| `app-promote.yaml` | app, `workflow_dispatch` on a tag, environment `prod` | resolve and verify `manifests:<tag>`, PR to `gitops` `prod.json` (team approves) |
-| `app-register.yaml` | app, main | first run after the template rename: PR to `gitops` registering the app |
-| `release-please.yaml` | app, main | release PR and tag, token from octo-sts |
-| `devenv-update.yaml` | any repository, weekly | `devenv update` as a PR (replaces Renovate for `devenv.lock`) |
-| `lint-workflows.yaml` | everyone | zizmor, actionlint |
+| Workflow              | Called by                                             | Does                                                                                                                             |
+| --------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `rust-ci.yaml`        | app, PR and main                                      | `devenv test`, `cue vet ./deploy`                                                                                                |
+| `app-preview.yaml`    | app, PR (same repository only)                        | image `pr-<n>-<sha7>`, `manifests:pr-<n>`, both cosign signed                                                                    |
+| `app-release.yaml`    | app, tag `v*`, environment `staging`                  | image (buildx, SBOM + provenance), `manifests:<version>` (staging + prod), signed, PR to `gitops` `staging.json` with auto-merge |
+| `app-promote.yaml`    | app, `workflow_dispatch` on a tag, environment `prod` | resolve and verify `manifests:<tag>`, PR to `gitops` `prod.json` (team approves)                                                 |
+| `app-register.yaml`   | app, main                                             | first run after the template rename: PR to `gitops` registering the app                                                          |
+| `release-please.yaml` | app, main                                             | release PR and tag, token from octo-sts                                                                                          |
+| `devenv-update.yaml`  | any repository, weekly                                | `devenv update` as a PR (replaces Renovate for `devenv.lock`)                                                                    |
+| `lint-workflows.yaml` | everyone                                              | zizmor, actionlint                                                                                                               |
 
 Contracts (names, artifacts, identities, the commands called in each repository):
 `meta/delivery.md`.
@@ -110,12 +110,12 @@ The caller of `devenv-update.yaml` (weekly):
 
 ```yaml
 on:
-  schedule: [{cron: "0 6 * * 1"}]
+  schedule: [{ cron: "0 6 * * 1" }]
   workflow_dispatch:
 permissions: {}
 jobs:
   devenv:
-    permissions: {contents: read, id-token: write}
+    permissions: { contents: read, id-token: write }
     uses: homelab-selfuryon/github-workflows/.github/workflows/devenv-update.yaml@v1.0.0
 ```
 
