@@ -6,10 +6,6 @@
 
   git-hooks.hooks.actionlint.enable = true;
 
-  # release-please writes CHANGELOG.md; formatting it would fight every release.
-  # (Moves into platform-kit base.nix with v0.1.1.)
-  treefmt.config.settings.global.excludes = [ "CHANGELOG.md" ];
-
   # `devenv test` (after the base step `treefmt --fail-on-change`)
   enterTest = ''
     actionlint
