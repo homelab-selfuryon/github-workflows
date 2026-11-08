@@ -18,7 +18,7 @@ permissions: {}
 
 env:
   DEVENV_VERSION: v2.4.0
-  CUE_REGISTRY: github.com/homelab-selfuryon=ghcr.io/homelab-selfuryon
+  CUE_REGISTRY: 'inline:moduleRegistries: "github.com/homelab-selfuryon": {registry: "ghcr.io/homelab-selfuryon/cue", stripPrefix: true}'
 
 jobs:
   register:
