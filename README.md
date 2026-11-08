@@ -86,7 +86,7 @@ Scope = the caller's own repository, so these live in the caller's `.github/chai
 ```yaml
 # devenv-update.sts.yaml (any repository; `release-please.sts.yaml` is the same with the other workflow)
 issuer: https://token.actions.githubusercontent.com
-subject: repo:homelab-selfuryon/<repo>:ref:refs/heads/main
+subject_pattern: repo:homelab-selfuryon@353728095/<repo>@[0-9]+:ref:refs/heads/main
 claim_pattern:
   event_name: schedule|workflow_dispatch
   job_workflow_ref: homelab-selfuryon/github-workflows/\.github/workflows/devenv-update\.yaml@.+
@@ -98,7 +98,7 @@ permissions:
 ```yaml
 # release-please.sts.yaml
 issuer: https://token.actions.githubusercontent.com
-subject: repo:homelab-selfuryon/<repo>:ref:refs/heads/main
+subject_pattern: repo:homelab-selfuryon@353728095/<repo>@[0-9]+:ref:refs/heads/main
 claim_pattern:
   job_workflow_ref: homelab-selfuryon/github-workflows/\.github/workflows/release-please\.yaml@.+
 permissions:

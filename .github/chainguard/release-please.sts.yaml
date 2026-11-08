@@ -1,7 +1,7 @@
 # octo-sts trust policy: the token release-please uses on this repository, so the release PR it
 # opens triggers CI and the tag it creates triggers workflows (a GITHUB_TOKEN would not).
 issuer: https://token.actions.githubusercontent.com
-subject: repo:homelab-selfuryon/github-workflows:ref:refs/heads/main
+subject_pattern: repo:homelab-selfuryon@353728095/github-workflows@[0-9]+:ref:refs/heads/main
 claim_pattern:
   job_workflow_ref: homelab-selfuryon/github-workflows/\.github/workflows/release-please\.yaml@refs/heads/main
 permissions:
