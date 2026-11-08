@@ -1,0 +1,12 @@
+# Nix
+.direnv/
+.devenv*
+devenv.local.nix
+devenv.local.yaml
+.pre-commit-config.yaml
+result
+result-*
+
+# Claude
+.claude/settings.local.json
+.claude/worktrees/

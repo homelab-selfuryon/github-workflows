@@ -1,0 +1,157 @@
+name: App register
+
+# Reusable: registers a new app in gitops (called on push to main of a app repository).
+#
+# Reads name and team from deploy.cue (the name must be the repository's: the template was renamed),
+# does nothing when apps/<team>/<app>/app.cue exists in gitops, otherwise opens a PR that adds
+# the registration (app.cue, `{}` version files, the import and entry in registry.cue). No
+# auto-merge: platform approves, and gitops-verify checks deploy.cue's team against the repository's
+# `owner-team` custom property.
+#
+# octo-sts identity `app-register` (policy in gitops; only repositories with property kind=app).
+# Caller permissions: contents: read, packages: read, id-token: write.
+
+on:
+  workflow_call: {}
+
+permissions: {}
+
+env:
+  DEVENV_VERSION: v2.4.0
+  CUE_REGISTRY: github.com/homelab-selfuryon=ghcr.io/homelab-selfuryon
+
+jobs:
+  register:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read # platform-kit for cue
+      id-token: write # octo-sts
+    concurrency:
+      group: app-register-${{ github.repository }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+        with:
+          name: devenv # read-only: the public devenv cache, no auth token
+      - name: Install devenv
+        run: |
+          nix profile install --accept-flake-config --profile "$RUNNER_TEMP/devenv" "github:cachix/devenv/${DEVENV_VERSION}#devenv"
+          echo "$RUNNER_TEMP/devenv/bin" >> "$GITHUB_PATH"
+
+      # ~/.docker/config.json: read by buildx, oras and cue (platform-kit comes from GHCR).
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+
+      - name: Read and validate deploy.cue
+        run: |
+          set -euo pipefail
+          app=$(devenv shell -- cue export ./deploy -e name --out text)
+          team=$(devenv shell -- cue export ./deploy -e team --out text)
+          [[ "$app" =~ ^[a-z][a-z0-9-]{1,40}$ ]] || { echo "::error::invalid app name"; exit 1; }
+          [[ "$team" =~ ^[a-z][a-z0-9-]{1,30}$ ]] || { echo "::error::invalid team name"; exit 1; }
+          [[ "$app" == "${GITHUB_REPOSITORY#*/}" ]] || { echo "::error::deploy.cue name '${app}' is not the repository name, rename the template first"; exit 1; }
+          {
+            echo "APP=$app"
+            echo "TEAM=$team"
+          } >> "$GITHUB_ENV"
+
+      - name: Token for gitops
+        id: octo-sts
+        uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
+        with:
+          scope: homelab-selfuryon/gitops
+          identity: app-register
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: homelab-selfuryon/gitops
+          path: gitops
+          token: ${{ steps.octo-sts.outputs.token }}
+          persist-credentials: false
+
+      - name: Add the registration
+        id: add
+        run: |
+          set -euo pipefail
+          dir="gitops/apps/${TEAM}/${APP}"
+          if [[ -f "$dir/app.cue" ]]; then
+            echo "${APP} is already registered, nothing to do"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          pkg=${APP//-/}
+          cluster=$(cd gitops && devenv shell -- cue export -e clusters --out json | jq -r 'keys | if length == 1 then .[0] else error("more than one cluster: pass it explicitly") end')
+          [[ "$cluster" =~ ^[a-z][a-z0-9-]{1,40}$ ]]
+          mkdir -p "$dir"
+          cat > "$dir/app.cue" <<CUE
+          @extern(embed)
+
+          // Registration of ${APP}, owned by the platform team. Teams change staging.json (release PRs, no owner)
+          // and prod.json (promote PRs, owned by the team), never this file.
+          package ${pkg}
+
+          import "github.com/homelab-selfuryon/gitops/schema"
+
+          app: schema.#App & {
+          	name:    "${APP}"
+          	team:    "${TEAM}"
+          	repo:    "homelab-selfuryon/${APP}"
+          	cluster: "${cluster}"
+          	preview: true
+          	// {"version": "v1.2.0", "digest": "sha256:..."}; \`{}\` = not released yet, no Application.
+          	staging: _ @embed(file="staging.json")
+          	prod:    _ @embed(file="prod.json")
+          }
+          CUE
+          echo '{}' > "$dir/staging.json"
+          echo '{}' > "$dir/prod.json"
+          # Import before the closing parenthesis of the import block, entry before the closing brace
+          # of `apps: {`.
+          awk -v imp="	${pkg} \"github.com/homelab-selfuryon/gitops/apps/${TEAM}/${APP}:${pkg}\"" \
+              -v ent="	\"${TEAM}/${APP}\": ${pkg}.app" '
+            /^import \($/ { inimp = 1 }
+            inimp && /^\)$/ { print imp; inimp = 0 }
+            /^apps: \{$/ { inapp = 1 }
+            inapp && /^\}$/ { print ent; inapp = 0 }
+            { print }' gitops/registry.cue > gitops/registry.cue.new
+          mv gitops/registry.cue.new gitops/registry.cue
+          # gitops' own devenv: canonical formatting, and the result must vet before a PR is opened.
+          # shellcheck disable=SC2016 # expanded by the inner shell
+          (cd gitops && devenv shell -- bash -c 'cue fmt registry.cue "apps/${TEAM}/${APP}/app.cue" && cue vet -c ./...')
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "BODY_FILE=$RUNNER_TEMP/pr-body.md" >> "$GITHUB_ENV"
+          {
+            echo "Register \`${APP}\` (team \`${TEAM}\`, cluster \`${cluster}\`) from ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}."
+            echo
+            echo "Adds \`apps/${TEAM}/${APP}/{app.cue,staging.json,prod.json}\` (version files \`{}\`, nothing deploys until the first release) and the entry in \`registry.cue\`."
+            echo "The team must equal the repository's \`owner-team\` property (checked by gitops-verify). Add \`/apps/${TEAM}/*/prod.json\` to CODEOWNERS if the team is new."
+            echo
+            echo "workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          } > "$RUNNER_TEMP/pr-body.md"
+
+      - name: Open the PR
+        if: steps.add.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          path: gitops
+          token: ${{ steps.octo-sts.outputs.token }}
+          branch: register/${{ env.APP }}
+          sign-commits: true
+          delete-branch: true
+          add-paths: |
+            registry.cue
+            apps/${{ env.TEAM }}/${{ env.APP }}/*
+          title: "feat(${{ env.APP }}): register the app"
+          commit-message: "feat(${{ env.APP }}): register the app"
+          body-path: ${{ env.BODY_FILE }}

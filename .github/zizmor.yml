@@ -1,0 +1,5 @@
+rules:
+  # `./.github/workflows/x.yaml` is what actionlint understands; zizmor would prefer the newer
+  # `$/...` self-repository syntax.
+  self-repository:
+    disable: true

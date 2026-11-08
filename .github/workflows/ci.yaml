@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  DEVENV_VERSION: v2.4.0
+
+jobs:
+  lint:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/lint-workflows.yaml
+
+  devenv-test:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+        with:
+          name: devenv # read-only: the public devenv cache, no auth token
+      - name: Install devenv
+        run: |
+          nix profile install --accept-flake-config --profile "$RUNNER_TEMP/devenv" "github:cachix/devenv/${DEVENV_VERSION}#devenv"
+          echo "$RUNNER_TEMP/devenv/bin" >> "$GITHUB_PATH"
+      - name: devenv test
+        run: devenv test
+
+  # The single required status check (branch ruleset).
+  final-check:
+    needs: [lint, devenv-test]
+    if: always()
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - name: Check results
+        run: |
+          [[ "$LINT" == success && "$TEST" == success ]] || { echo "lint=$LINT test=$TEST"; exit 1; }
+        env:
+          LINT: ${{ needs.lint.result }}
+          TEST: ${{ needs.devenv-test.result }}

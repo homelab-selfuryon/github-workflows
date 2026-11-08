@@ -1,0 +1,83 @@
+name: devenv update
+
+# Reusable: `devenv update` on a schedule, as a PR in the calling repository. Renovate has no devenv
+# manager, this replaces it for devenv.lock.
+#
+# The PR is opened with an octo-sts token for the repository itself (identity `devenv-update`, policy in
+# the caller's .github/chainguard/devenv-update.sts.yaml), so CI runs on it; a GITHUB_TOKEN would not.
+# Caller (weekly):
+#
+#   on: {schedule: [{cron: "0 6 * * 1"}], workflow_dispatch: {}}
+#   jobs:
+#     update:
+#       permissions: {contents: read, id-token: write}
+#       uses: homelab-selfuryon/github-workflows/.github/workflows/devenv-update.yaml@v1.0.0
+#
+# Caller permissions: contents: read, id-token: write.
+
+on:
+  workflow_call: {}
+
+permissions: {}
+
+env:
+  DEVENV_VERSION: v2.4.0
+
+jobs:
+  update:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write # octo-sts
+    concurrency:
+      group: devenv-update-${{ github.repository }}
+      cancel-in-progress: false
+    steps:
+      - name: Token for this repository
+        id: octo-sts
+        uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
+        with:
+          scope: ${{ github.repository }}
+          identity: devenv-update
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+        with:
+          name: devenv # read-only: the public devenv cache, no auth token
+      - name: Install devenv
+        run: |
+          nix profile install --accept-flake-config --profile "$RUNNER_TEMP/devenv" "github:cachix/devenv/${DEVENV_VERSION}#devenv"
+          echo "$RUNNER_TEMP/devenv/bin" >> "$GITHUB_PATH"
+
+
+      - name: Update devenv.lock
+        run: |
+          set -euo pipefail
+          devenv update
+          # The new lock must still evaluate.
+          devenv shell -- true
+          echo "BODY_FILE=$RUNNER_TEMP/pr-body.md" >> "$GITHUB_ENV"
+          {
+            echo "Weekly \`devenv update\`."
+            echo
+            echo '```diff'
+            git diff --stat -- devenv.lock
+            echo '```'
+          } > "$RUNNER_TEMP/pr-body.md"
+
+      - name: Open the PR
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ steps.octo-sts.outputs.token }}
+          branch: chore/devenv-update
+          sign-commits: true
+          delete-branch: true
+          add-paths: devenv.lock
+          title: "chore(deps): update devenv.lock"
+          commit-message: "chore(deps): update devenv.lock"
+          body-path: ${{ env.BODY_FILE }}

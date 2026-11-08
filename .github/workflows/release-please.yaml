@@ -1,0 +1,38 @@
+name: Release Please
+
+# Reusable: release PR and tag for the calling repository. The token comes from octo-sts (scope =
+# the caller itself, identity `release-please`; the trust policy lives in the caller's
+# .github/chainguard/release-please.sts.yaml) so the tag it creates triggers the release workflow;
+# a GITHUB_TOKEN would not.
+#
+# Config: release-please-config.json and .release-please-manifest.json in the caller.
+# Caller permissions: contents: read, id-token: write.
+
+on:
+  workflow_call: {}
+
+permissions: {}
+
+jobs:
+  release-please:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write # octo-sts
+    concurrency:
+      group: release-please-${{ github.repository }}
+      cancel-in-progress: false
+    steps:
+      - name: Token for this repository
+        id: octo-sts
+        uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
+        with:
+          scope: ${{ github.repository }}
+          identity: release-please
+
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ steps.octo-sts.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

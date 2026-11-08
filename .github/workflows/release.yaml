@@ -1,0 +1,17 @@
+name: Release
+
+# Release PR and `v1.x` tags of this repository (callers pin a SHA, Renovate follows the tags).
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  release-please:
+    name: Release Please
+    permissions:
+      contents: read
+      id-token: write # octo-sts (policy: .github/chainguard/release-please.sts.yaml)
+    uses: ./.github/workflows/release-please.yaml

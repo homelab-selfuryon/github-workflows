@@ -1,0 +1,147 @@
+name: App promote
+
+# Reusable: moves prod to a released version. A person starts it from the app's `promote`
+# workflow (workflow_dispatch) with "Use workflow from" set to the release tag.
+#
+# Resolves manifests:<tag>, verifies its signature (workflow identity app-release.yaml, source
+# repository = the caller) and opens a PR in gitops editing only apps/<team>/<app>/prod.json.
+# No auto-merge: the owning team approves through CODEOWNERS.
+#
+# Runs in the GitHub Environment `prod` of the calling repository; the environment is part of the
+# OIDC subject octo-sts checks.
+# Caller permissions: contents: read, packages: read, id-token: write.
+
+on:
+  workflow_call: {}
+
+permissions: {}
+
+env:
+  DEVENV_VERSION: v2.4.0
+  CUE_REGISTRY: github.com/homelab-selfuryon=ghcr.io/homelab-selfuryon
+  REGISTRY: ghcr.io/homelab-selfuryon
+
+jobs:
+  promote:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    environment: prod
+    permissions:
+      contents: read
+      packages: read # pull and verify the manifests artifact
+      id-token: write # octo-sts
+    concurrency:
+      group: app-promote-${{ github.repository }}
+      cancel-in-progress: false
+    steps:
+      - name: Refuse anything but a release tag
+        run: |
+          set -euo pipefail
+          [[ "$EVENT" == "workflow_dispatch" ]] || { echo "::error::promote runs from workflow_dispatch only"; exit 1; }
+          [[ "$REF_TYPE" == "tag" && "$REF" == refs/tags/v* ]] || { echo "::error::run the workflow on a release tag (v*), not on a branch"; exit 1; }
+          [[ "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::tag is not a semantic version"; exit 1; }
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+        with:
+          name: devenv # read-only: the public devenv cache, no auth token
+      - name: Install devenv
+        run: |
+          nix profile install --accept-flake-config --profile "$RUNNER_TEMP/devenv" "github:cachix/devenv/${DEVENV_VERSION}#devenv"
+          echo "$RUNNER_TEMP/devenv/bin" >> "$GITHUB_PATH"
+
+      # ~/.docker/config.json: read by buildx, oras and cue (platform-kit comes from GHCR).
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+      - uses: oras-project/setup-oras@5e2f2482b30b0cb3e14e67f89a80c88c659a7c63 # v2.0.3
+
+
+      - name: Resolve and verify the release
+        run: |
+          set -euo pipefail
+          app=$(devenv shell -- cue export ./deploy -e name --out text)
+          team=$(devenv shell -- cue export ./deploy -e team --out text)
+          [[ "$app" =~ ^[a-z][a-z0-9-]{1,40}$ ]] || { echo "::error::invalid app name"; exit 1; }
+          [[ "$team" =~ ^[a-z][a-z0-9-]{1,30}$ ]] || { echo "::error::invalid team name"; exit 1; }
+          [[ "$app" == "${GITHUB_REPOSITORY#*/}" ]] || { echo "::error::deploy.cue name does not match the repository"; exit 1; }
+          digest=$(oras resolve "${REGISTRY}/${app}/manifests:${VERSION}")
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::manifests:${VERSION} not found"; exit 1; }
+          cosign verify \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity-regexp '^https://github\.com/homelab-selfuryon/github-workflows/\.github/workflows/app-release\.yaml@.+$' \
+            --certificate-github-workflow-repository "$GITHUB_REPOSITORY" \
+            "${REGISTRY}/${app}/manifests@${digest}" > /dev/null
+          {
+            echo "APP=$app"
+            echo "TEAM=$team"
+            echo "MANIFESTS_DIGEST=$digest"
+          } >> "$GITHUB_ENV"
+        env:
+          VERSION: ${{ github.ref_name }}
+
+      - name: Token for gitops
+        id: octo-sts
+        uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
+        with:
+          scope: homelab-selfuryon/gitops
+          identity: app-promote
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: homelab-selfuryon/gitops
+          path: gitops
+          token: ${{ steps.octo-sts.outputs.token }}
+          persist-credentials: false
+
+      - name: Move prod
+        run: |
+          set -euo pipefail
+          dir="gitops/apps/${TEAM}/${APP}"
+          [[ -d "$dir" ]] || { echo "::error::${APP} is not registered in gitops (apps/${TEAM}/${APP})"; exit 1; }
+          staging_version=none; staging_digest=none
+          if [[ -f "$dir/staging.json" ]]; then
+            staging_version=$(jq -r '.version // "none"' "$dir/staging.json")
+            staging_digest=$(jq -r '.digest // "none"' "$dir/staging.json")
+          fi
+          jq -n --arg version "$VERSION" --arg digest "$MANIFESTS_DIGEST" '{version: $version, digest: $digest}' > "$dir/prod.json"
+          echo "BODY_FILE=$RUNNER_TEMP/pr-body.md" >> "$GITHUB_ENV"
+          {
+            echo "Promote \`${APP}\` \`${VERSION}\` to prod."
+            echo
+            echo "- manifests: \`${REGISTRY}/${APP}/manifests@${MANIFESTS_DIGEST}\` (signature and source repository verified)"
+            echo "- staging runs: \`${staging_version}\` (\`${staging_digest}\`) in [staging.json](${GITHUB_SERVER_URL}/homelab-selfuryon/gitops/blob/main/apps/${TEAM}/${APP}/staging.json)"
+            if [[ "$staging_digest" != "$MANIFESTS_DIGEST" ]]; then
+              echo
+              echo "> This digest is not what staging runs today."
+            fi
+            echo "- release: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${VERSION}"
+            echo "- workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          } > "$RUNNER_TEMP/pr-body.md"
+        env:
+          VERSION: ${{ github.ref_name }}
+
+      - name: Open the PR
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          path: gitops
+          token: ${{ steps.octo-sts.outputs.token }}
+          branch: promote/${{ env.APP }}/prod/${{ github.ref_name }}
+          sign-commits: true
+          delete-branch: true
+          add-paths: apps/${{ env.TEAM }}/${{ env.APP }}/prod.json
+          title: "release(${{ env.APP }}): prod ${{ github.ref_name }}"
+          commit-message: "release(${{ env.APP }}): prod ${{ github.ref_name }}"
+          body-path: ${{ env.BODY_FILE }}

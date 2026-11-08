@@ -1,0 +1,50 @@
+name: Rust CI
+
+# Reusable: checks of a Rust app repository, through the repository's own devenv:
+# `devenv test` (treefmt, clippy -D warnings, tests, cargo-deny) and `cue vet ./deploy` against the
+# platform-kit schema.
+#
+# Caller permissions: contents: read, packages: read.
+
+on:
+  workflow_call: {}
+
+permissions: {}
+
+env:
+  DEVENV_VERSION: v2.4.0
+  CUE_REGISTRY: github.com/homelab-selfuryon=ghcr.io/homelab-selfuryon
+
+jobs:
+  check:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+        with:
+          name: devenv # read-only: the public devenv cache, no auth token
+      - name: Install devenv
+        run: |
+          nix profile install --accept-flake-config --profile "$RUNNER_TEMP/devenv" "github:cachix/devenv/${DEVENV_VERSION}#devenv"
+          echo "$RUNNER_TEMP/devenv/bin" >> "$GITHUB_PATH"
+
+      # ~/.docker/config.json: read by buildx, oras and cue (platform-kit comes from GHCR).
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+
+      - name: devenv test
+        run: devenv test
+
+      - name: Vet deploy.cue
+        run: devenv shell -- cue vet ./deploy
