@@ -36,7 +36,7 @@ everything from the repository they run in and validate it (app name = repositor
 a semantic version, digests and names match strict regexes) before it reaches a command or a PR.
 
 ```yaml
-# .github/workflows/release.yaml in a app
+# .github/workflows/release.yaml in an app
 on:
   push:
     tags: ["v*"]

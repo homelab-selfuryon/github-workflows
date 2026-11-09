@@ -1,6 +1,6 @@
 name: App register
 
-# Reusable: registers a new app in gitops (called on push to main of a app repository).
+# Reusable: registers a new app in gitops (called on push to main of an app repository).
 #
 # Reads name and team from deploy.cue (the name must be the repository's: the template was renamed),
 # does nothing when apps/<team>/<app>/app.cue exists in gitops, otherwise opens a PR that adds

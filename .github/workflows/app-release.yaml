@@ -1,6 +1,6 @@
 name: App release
 
-# Reusable: releases a app from a `v*` tag and moves staging in gitops.
+# Reusable: releases an app from a `v*` tag and moves staging in gitops.
 #
 #   image     ghcr.io/homelab-selfuryon/<app>:<version>  (from the Containerfile; buildx SBOM and
 #             provenance (mode=max); cosign signed)
