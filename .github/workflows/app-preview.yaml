@@ -1,6 +1,6 @@
 name: App preview
 
-# Reusable: builds a preview of a app for one pull request.
+# Reusable: builds a preview of an app for one pull request.
 #
 #   image     ghcr.io/homelab-selfuryon/<app>:pr-<n>-<sha7>  (from the Containerfile, buildx SBOM and
 #             provenance, cosign signed)
