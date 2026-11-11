@@ -121,7 +121,7 @@ jobs:
 
 ## Developing
 
-`devenv shell` (direnv: `.envrc`) gives actionlint, zizmor, shellcheck, cue (v0.18.0-rc.3 from the
+`devenv shell` (direnv: `.envrc`) gives actionlint, zizmor, shellcheck, cue (v0.18.0-rc.4 from the
 upstream tarball). `devenv test` runs treefmt, actionlint and zizmor. `devenv.lock` is updated weekly
 by `update.yaml` (this repository calls its own `devenv-update.yaml`). Renovate config is
 `.github/renovate.json`. Release: release-please opens a release PR from Conventional Commits
