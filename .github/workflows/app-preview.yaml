@@ -6,7 +6,8 @@ name: App preview
 #             provenance, cosign signed)
 #   manifests ghcr.io/homelab-selfuryon/<app>/manifests:pr-<n>  (preview/manifests.yaml, cosign signed)
 #
-# The Argo CD ApplicationSet in gitops creates the environment per open PR. The signature carries
+# Callers run it for pull requests labelled `preview` (the app's preview.yaml); the Argo CD
+# ApplicationSet in gitops creates the environment for open PRs with that label. The signature carries
 # this workflow's identity (app-preview.yaml), which gitops and Flux never accept for staging or prod.
 #
 # Runs only for pull requests from the same repository: a fork must not get a token that can push.
