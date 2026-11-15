@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/homelab-selfuryon/github-workflows/compare/v1.0.1...v1.1.0) (2026-11-15)
+
+
+### Features
+
+* **devenv-update:** enable auto-merge on the devenv.lock PR ([#13](https://github.com/homelab-selfuryon/github-workflows/issues/13)) ([4930c77](https://github.com/homelab-selfuryon/github-workflows/commit/4930c77cf29d8cc76f4a4cd6599b85b7d681cc1b))
+
 ## [1.0.1](https://github.com/homelab-selfuryon/github-workflows/compare/v1.0.0...v1.0.1) (2026-11-08)
 
 
