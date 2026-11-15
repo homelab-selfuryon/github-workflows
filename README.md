@@ -14,16 +14,16 @@ workflow on any branch produce an accepted artifact; there is no reusable workfl
 artifacts the logic lives here for the same reason it is
 called pinned (Renovate bumps the SHA): release logic stays out of the product repository.
 
-| Workflow              | Called by                                             | Does                                                                                                                             |
-| --------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `rust-ci.yaml`        | app, PR and main                                      | `devenv test`, `cue vet ./deploy`                                                                                                |
-| `app-preview.yaml`    | app, PR (same repository only)                        | image `pr-<n>-<sha7>`, `manifests:pr-<n>`, both cosign signed                                                                    |
-| `app-release.yaml`    | app, tag `v*`, environment `staging`                  | image (buildx, SBOM + provenance), `manifests:<version>` (staging + prod), signed, PR to `gitops` `staging.json` with auto-merge |
-| `app-promote.yaml`    | app, `workflow_dispatch` on a tag, environment `prod` | resolve and verify `manifests:<tag>`, PR to `gitops` `prod.json` (team approves)                                                 |
-| `app-register.yaml`   | app, main                                             | first run after the template rename: PR to `gitops` registering the app                                                          |
-| `release-please.yaml` | app, main                                             | release PR and tag, token from octo-sts                                                                                          |
-| `devenv-update.yaml`  | any repository, weekly                                | `devenv update` as a PR (replaces Renovate for `devenv.lock`)                                                                    |
-| `lint-workflows.yaml` | everyone                                              | zizmor, actionlint                                                                                                               |
+| Workflow              | Called by                                             | Does                                                                                                                                       |
+| --------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `rust-ci.yaml`        | app, PR and main                                      | `devenv test`, `cue vet ./deploy`                                                                                                          |
+| `app-preview.yaml`    | app, PR (same repository only)                        | image `pr-<n>-<sha7>`, `manifests:pr-<n>`, both cosign signed                                                                              |
+| `app-release.yaml`    | app, tag `v*`, environment `staging`                  | image (buildx, SBOM + provenance), `manifests:<version>` (staging + prod), signed, PR to `gitops` `staging.json` with auto-merge           |
+| `app-promote.yaml`    | app, `workflow_dispatch` on a tag, environment `prod` | resolve and verify `manifests:<tag>`, PR to `gitops` `prod.json` (team approves)                                                           |
+| `app-register.yaml`   | app, main                                             | first run after the template rename: PR to `gitops` registering the app                                                                    |
+| `release-please.yaml` | app, main                                             | release PR and tag, token from octo-sts                                                                                                    |
+| `devenv-update.yaml`  | any repository, weekly                                | `devenv update` as a PR with auto-merge (merges when the checks pass; `auto-merge: false` to opt out; replaces Renovate for `devenv.lock`) |
+| `lint-workflows.yaml` | everyone                                              | zizmor, actionlint                                                                                                                         |
 
 Contracts (names, artifacts, identities, the commands called in each repository):
 `meta/delivery.md`.
