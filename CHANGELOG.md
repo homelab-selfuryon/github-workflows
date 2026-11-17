@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/homelab-selfuryon/github-workflows/compare/v1.1.0...v1.1.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* **app-promote:** refuse a tag that is not on main ([#16](https://github.com/homelab-selfuryon/github-workflows/issues/16)) ([23ec7a3](https://github.com/homelab-selfuryon/github-workflows/commit/23ec7a35e66504632f599e658794c33fcf6371e0))
+
 ## [1.1.0](https://github.com/homelab-selfuryon/github-workflows/compare/v1.0.1...v1.1.0) (2026-11-15)
 
 
