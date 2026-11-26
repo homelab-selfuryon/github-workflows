@@ -56,7 +56,7 @@ jobs:
       # while this job holds id-token: write).
       - name: Refuse a tag that is not on main
         run: git merge-base --is-ancestor HEAD origin/main || { echo "::error::the tag is not on main"; exit 1; }
-      - uses: cachix/install-nix-action@bb0495a1086c46893eee56f32fd192dfe4a15bb9 # v32.0.0
+      - uses: cachix/install-nix-action@382a9ed9481c7c1f94f68b72ef105b3417c73877 # v32.1.0
       - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
         with:
           name: devenv # read-only: the public devenv cache, no auth token
