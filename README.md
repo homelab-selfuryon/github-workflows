@@ -20,7 +20,6 @@ called pinned (Renovate bumps the SHA): release logic stays out of the product r
 | `app-preview.yaml`    | app, PR (same repository only)                        | image `pr-<n>-<sha7>`, `manifests:pr-<n>`, both cosign signed                                                                              |
 | `app-release.yaml`    | app, tag `v*`, environment `staging`                  | image (buildx, SBOM + provenance), `manifests:<version>` (staging + prod), signed, PR to `gitops` `staging.json` with auto-merge           |
 | `app-promote.yaml`    | app, `workflow_dispatch` on a tag, environment `prod` | tag on `main`, resolve and verify `manifests:<tag>`, PR to `gitops` `prod.json` (team approves)                                            |
-| `app-register.yaml`   | app, main                                             | first run after the template rename: PR to `gitops` registering the app                                                                    |
 | `release-please.yaml` | app, main                                             | release PR and tag, token from octo-sts                                                                                                    |
 | `devenv-update.yaml`  | any repository, weekly                                | `devenv update` as a PR with auto-merge (merges when the checks pass; `auto-merge: false` to opt out; replaces Renovate for `devenv.lock`) |
 | `lint-workflows.yaml` | everyone                                              | zizmor, actionlint                                                                                                                         |
@@ -75,7 +74,7 @@ is `app` (platform-terraform sets it); gitops' trust policies require it.
 - OCI manifest artifacts are one deterministic `tar.gz` layer of media type
   `application/vnd.oci.image.layer.v1.tar+gzip`, pushed with `oras`, signed by digest with keyless cosign.
 - Cross-repository PRs use short-lived octo-sts tokens (scope `homelab-selfuryon/gitops`, identities
-  `app-release`, `app-promote`, `app-register`, `components-release`; the policies are
+  `app-release`, `app-promote`, `components-release`; the policies are
   in `gitops/.github/chainguard/`). Commits are made through `create-pull-request` with
   `sign-commits`, credentials are never persisted.
 
