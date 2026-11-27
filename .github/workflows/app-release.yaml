@@ -162,7 +162,7 @@ jobs:
         run: |
           set -euo pipefail
           file="gitops/apps/${TEAM}/${APP}/staging.json"
-          [[ -d "gitops/apps/${TEAM}/${APP}" ]] || { echo "::error::${APP} is not registered in gitops (apps/${TEAM}/${APP})"; exit 1; }
+          [[ -d "gitops/apps/${TEAM}/${APP}" ]] || { echo "::error::${APP} is not in gitops (apps/${TEAM}/${APP}): add it in the catalog repository"; exit 1; }
           jq -n --arg version "$VERSION" --arg digest "$MANIFESTS_DIGEST" '{version: $version, digest: $digest}' > "$file"
           echo "BODY_FILE=$RUNNER_TEMP/pr-body.md" >> "$GITHUB_ENV"
           {

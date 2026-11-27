@@ -116,7 +116,7 @@ jobs:
         run: |
           set -euo pipefail
           dir="gitops/apps/${TEAM}/${APP}"
-          [[ -d "$dir" ]] || { echo "::error::${APP} is not registered in gitops (apps/${TEAM}/${APP})"; exit 1; }
+          [[ -d "$dir" ]] || { echo "::error::${APP} is not in gitops (apps/${TEAM}/${APP}): add it in the catalog repository"; exit 1; }
           staging_version=none; staging_digest=none
           if [[ -f "$dir/staging.json" ]]; then
             staging_version=$(jq -r '.version // "none"' "$dir/staging.json")
