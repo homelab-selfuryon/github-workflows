@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/homelab-selfuryon/github-workflows/compare/v1.1.1...v1.1.2) (2026-11-27)
+
+
+### Bug Fixes
+
+* **app:** point a missing gitops directory to the catalog ([#26](https://github.com/homelab-selfuryon/github-workflows/issues/26)) ([0cef5dc](https://github.com/homelab-selfuryon/github-workflows/commit/0cef5dcb3ee5a6f126e86acf1fe527a8201680a1))
+
 ## [1.1.1](https://github.com/homelab-selfuryon/github-workflows/compare/v1.1.0...v1.1.1) (2026-11-17)
 
 
